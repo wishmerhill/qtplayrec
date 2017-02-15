@@ -63,10 +63,12 @@ class MainWindow(QMainWindow):
         # path/file line edits
         self.input_file_edit = QLineEdit()
         self.output_file_edit = QLineEdit()
-        self.play_button = QPushButton("Play", self)
+        self.play_button = QPushButton("", self)
         self.play_button.setIcon(self.play_normal_icon)
-        self.stop_button = QPushButton("Stop", self)
-        self.record_button = QPushButton("Rec", self)
+        self.play_button.resize(150,150)
+        self.stop_button = QPushButton("", self)
+        self.stop_button.setIcon(self.stop_normal_icon)
+        self.record_button = QPushButton("", self)
         self.record_button.setCheckable(True)
         self.record_button.setIcon(self.rec_icon)
 
@@ -173,42 +175,63 @@ class MainWindow(QMainWindow):
         self.video_widget.installEventFilter(self)
 
     def bind_play_rec(self):
-        logger.info("toggling binding REC/PLAY")
+        """
+        toggle the binding between play and rec to start recording as soon as playback starts.
+
+
+        :return: Nothing
+        """
         if not self.bindPlayRecStatus:
-            logger.info("setting True")
             self.bindPlayRecStatus = True
         else:
-            logger.info("setting False")
             self.bindPlayRecStatus = False
+        # If binding is active, the REC button is disabled.
+        self.record_button.setDisabled(self.bindPlayRecStatus)
 
 
     def play_clicked(self):
         """
-        Start or resume playback
+        Start or resume playback.
+        If binding is active, start/pause the audio recording as well
         """
         if (self.media_player.state() in
                 (QMediaPlayer.PausedState, QMediaPlayer.StoppedState)):
             self.media_player.play()
-
+            logger.info("(Re)Starting playback")
+            if self.bindPlayRecStatus:
+                if (self.recorder.state() in
+                        (QAudioRecorder.PausedState, QAudioRecorder.StoppedState)):
+                    logger.info("Rec/Play bind is on! (Re)Starting Recorder as well.")
+                    self.recorder.record()
         else:
             self.media_player.pause()
+            logger.info("Pausing playback")
+            if self.bindPlayRecStatus:
+                logger.info("Rec/Play bind is on! Pausing Recorder as well.")
+                self.recorder.pause()
 
     def stop_clicked(self):
         """
-        Stopping playback
+        Stopping playback.
+        if Play/Rec binding is on, stop also the recorder.
         """
+        logger.info("Stopping playback")
         self.media_player.stop()
+        if self.bindPlayRecStatus:
+            logger.info("Rec/Play bind is on! Stopping Recorder as well.")
+            self.recorder.stop()
 
     def state_changed(self, newstate):
         """
-        Aggiornare il testo dei pulsanti
+        Update buttons. Not really needed, probably.
         """
         states = {
-            QMediaPlayer.PausedState: "Riprendere",
-            QMediaPlayer.PlayingState: "Pausa",
-            QMediaPlayer.StoppedState: "Play"
+            QMediaPlayer.PausedState: self.play_normal_icon,
+            QMediaPlayer.PlayingState: self.pause_icon,
+            QMediaPlayer.StoppedState: self.play_normal_icon
         }
-        self.play_button.setText(states[newstate])
+        self.play_button.setIcon(states[newstate])
+        # elegant way to enable/disable the stop button
         self.stop_button.setEnabled(newstate != QMediaPlayer.StoppedState)
 
     def eventFilter(self, obj, event):
@@ -271,7 +294,9 @@ class MainWindow(QMainWindow):
     def setupConstants(self):
         self.rec_icon = QIcon.fromTheme("media-record", QIcon("icons/rec.png"))
         self.play_normal_icon = QIcon.fromTheme("media-playback-start", QIcon("icons/Play-Normal.png"))
+        self.stop_normal_icon = QIcon.fromTheme("media-playback-stop", QIcon("icons/Stop-Normal.png"))
         self.exit_icon = QIcon.fromTheme("application-exit", QIcon("icons/application-exit.png"))
+        self.pause_icon = QIcon.fromTheme("media-playback-pause", QIcon("icons/Pause-Disabled-icon.png"))
         self.bindPlayRecStatus = False
 
 if __name__ == "__main__":
